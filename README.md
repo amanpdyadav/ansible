@@ -1,5 +1,5 @@
 # ANSIBLE
-This repository has Ansible scripts for deploying ec2 instances on AWS.
+This repository has Ansible role based scripts for deploying ec2 instances on AWS.
 
 # Requirements
 - boto
