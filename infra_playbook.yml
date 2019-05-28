@@ -1,0 +1,6 @@
+---
+# Playbook for deploying or updating aws infrastructure.
+- hosts: localhost
+  connection: local
+  roles:
+    - { role: deploy, tags: ['deploy'] }

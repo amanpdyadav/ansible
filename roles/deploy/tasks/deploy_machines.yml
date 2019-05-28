@@ -1,0 +1,43 @@
+---
+# Get all the ec2 instances which are in running state and belongs to the region.
+- name: Fetch EC2 details
+  ec2_instance_facts:
+    region: "{{ region }}"
+    filters:
+      instance-state-name: [ "running"]
+  register: running_ec2
+
+# Deploy the machine
+- name: Deploy EC2 machines to availability zones
+  ec2:
+    instance_type: "{{ item.value.instance_type }}"
+    region: "{{ region }}"
+    image: "{{ ami_base_image }}"
+    instance_tags:
+      "type": "{{ item.key }}"
+    volumes:
+      - device_name: /dev/xvda
+        volume_type: gp2
+        volume_size: "{{ item.value.volume_size|default(8) }}"
+        delete_on_termination: true
+    wait: yes
+    count: "{{ item.value.number_of_instances }}"
+    vpc_subnet_id: "{{ vpc_subnet_id }}"
+    assign_public_ip: yes
+  # Do not deploy if the ec2 with same name exists.
+  when: "item.key not in (running_ec2.instances|map(attribute='tags.Name')|list)"
+  with_dict:
+    - "{{ machines }}"
+  register: instances
+
+
+- name: Give individual names to the machines
+  ec2_tag:
+    region: "{{ region }}"
+    tags:
+      "Name": "{{ item.1.tags.type }}"
+    resource: "{{ item.1.id }}"
+  with_subelements:
+    - "{{ instances.results }}"
+    - instances
+  when: "item.0|changed and item.1 is defined and item.1|length > 0"
