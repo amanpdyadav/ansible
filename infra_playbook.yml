@@ -3,4 +3,5 @@
 - hosts: localhost
   connection: local
   roles:
-    - { role: deploy, tags: ['deploy'] }
+    - { role: deploy,            tags: ['deploy'] }
+  tags: deploy-infra

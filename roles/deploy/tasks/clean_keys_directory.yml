@@ -1,0 +1,23 @@
+---
+
+# Remove the old files from a directory
+- name: Clean artifact path
+  file:
+    state: absent
+    path: "{{ playbook_dir }}/keys/"
+
+# Create a directory.
+- name: Create directory for holding ssh keys
+  file:
+    path: "{{ playbook_dir }}/keys"
+    state: directory
+
+# Create required files with empty contents. This will be written with contents after deployment.
+- name: Create files with empty contents used for ssh connections
+  file:
+    path: "{{ playbook_dir }}/keys/{{item}}"
+    state: touch
+  with_items:
+    - temporary_deployment_key
+    - ansible_known_hosts
+    - machine_host_keys

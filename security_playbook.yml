@@ -1,0 +1,6 @@
+---
+- hosts: "{{ec2_machine_name}}"
+  remote_user: ec2-user
+  become: yes
+  roles:
+    - { role: update-ssh-authorized-list, tags: ['update-ssh-authorized-list'] }

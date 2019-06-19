@@ -1,18 +1,20 @@
 # Region for ec2-instances
-region: eu-central-1
+region: ap-southeast-1
 
 # Base image type id. In this example we shows
 # Amazon Linux 2 AMI (HVM), SSD Volume Type - ami-0ebe657bc328d4e82 (Free tier eligible)
-ami_base_image: ami-0ebe657bc328d4e82
+ami_base_image: ami-a59b49c6
 
 # Default vpc_subnet
-vpc_subnet_id: subnet-0a798660
+vpc_subnet_id: subnet-6acc080f
 
 # Add the list of ec2 machines you want to create. This examples shows 2 ec2 instances.
 machines:
-  dev_server:
+  local_server:
     number_of_instances: 1
     instance_type: t2.micro
+    volume_size: 8
   prod_server:
     number_of_instances: 1
     instance_type: t2.micro
+    volume_size: 8

@@ -1,3 +1,9 @@
 ---
+- include: clean_keys_directory.yml
+  tags: clean_keys_directory
+
+- include: deploy_security_groups.yml
+  tags: deploy_security_groups
+
 - include: deploy_machines.yml
   tags: deploy_machines

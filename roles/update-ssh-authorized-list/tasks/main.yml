@@ -1,0 +1,19 @@
+---
+# ec2-user is the root user.
+# Copy all the ssh keys to authorized list of ec2-user
+- name: Copy public keys of all users to authorized_keys of ec2-user
+  assemble:
+    src: "{{role_path}}/files"
+    remote_src: False
+    dest: /home/ec2-user/.ssh/authorized_keys
+    owner: ec2-user
+    group: ec2-user
+    mode: 0400
+  tags: ssh_keys
+
+- name: Allow admin users to sudo without a password
+  lineinfile:
+    dest: "/etc/sudoers" # path: in version 2.3
+    state: "present"
+    regexp: "^%admin"
+    line: "%admin ALL=(ALL) NOPASSWD: ALL"

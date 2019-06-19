@@ -1,4 +1,30 @@
 ---
+# Delete temporary key if exist.
+- name: Delete possibly existing temporary deployment ssh key
+  ec2_key:
+    name: temporary_deployment_key
+    region: "{{ region }}"
+    state: absent
+  ignore_errors: yes
+
+# Create new temporary key. This key is used for debugging if something goes wrong during the deployment.
+- name: Create temporary ssh key for deploying machines
+  ec2_key:
+    name: temporary_deployment_key
+    region: "{{ region }}"
+  register: temp_deploy_key
+  tags: temporary_ssh_key
+
+# Save the temporary private key.
+- name: Save temporary ssh private key to a file
+  copy:
+    content: "{{ temp_deploy_key.key.private_key }}"
+    dest: "{{ playbook_dir }}/keys/temporary_deployment_key"
+    mode: 0600
+  when: temp_deploy_key.changed
+  register: saved_temp_deploy_key
+  tags: temporary_ssh_key
+
 # Get all the ec2 instances which are in running state and belongs to the region.
 - name: Fetch EC2 details
   ec2_instance_facts:
@@ -10,10 +36,13 @@
 # Deploy the machine
 - name: Deploy EC2 machines to availability zones
   ec2:
+    key_name: temporary_deployment_key
     instance_type: "{{ item.value.instance_type }}"
     region: "{{ region }}"
     image: "{{ ami_base_image }}"
+    group_id: "{{ server_firewall.group_id }}"
     instance_tags:
+      "Name": "{{ item.key }}"
       "type": "{{ item.key }}"
     volumes:
       - device_name: /dev/xvda
@@ -30,14 +59,49 @@
     - "{{ machines }}"
   register: instances
 
-
-- name: Give individual names to the machines
-  ec2_tag:
-    region: "{{ region }}"
-    tags:
-      "Name": "{{ item.1.tags.type }}"
-    resource: "{{ item.1.id }}"
+- name: Get hosts keys of the machines
+  shell: "aws ec2 get-console-output --region {{ region }} --instance-id {{ item.1.id }} --output text --profile {{ profile }}|grep ssh-ed25519"
+  until: "'ssh-ed25519' in host_keys.stdout"
+  retries: 100
+  delay: 3
+  register: host_keys
   with_subelements:
     - "{{ instances.results }}"
     - instances
-  when: "item.0|changed and item.1 is defined and item.1|length > 0"
+  when: "item.0 is changed and item.1 is defined and item.1|length > 0"
+
+- name: Update host keys to known_hosts file [1/2]
+  lineinfile:
+    dest: "{{ playbook_dir }}/keys/ansible_known_hosts"
+    regexp: "^{{ item.item[1].public_dns_name }}"
+    line: "{{ item.item[1].public_dns_name }} {{ item.stdout }}"
+    state: present
+  with_items: "{{ host_keys.results }}"
+  when: "item is changed and item.item is defined and item.item|length > 0"
+  no_log: True
+
+- name: Update host keys to known_hosts file [2/2]
+  lineinfile:
+    dest: "{{ playbook_dir }}/keys/ansible_known_hosts"
+    regexp: "^{{ item.item[1].public_ip }}"
+    line: "{{ item.item[1].public_ip }} {{ item.stdout }}"
+    state: present
+  with_items: "{{ host_keys.results }}"
+  when: "item is changed and item.item is defined and item.item|length > 0"
+  no_log: True
+
+- name: Register hostkey for this ansible host
+  lineinfile:
+    dest: "{{ playbook_dir }}/keys/machine_host_keys"
+    line: "{{ item.item.1.tags.type }} {{ item.stdout.split(' ')[1] }}"
+    state: present
+  with_items: "{{ host_keys.results }}"
+  when: "item is changed and item.item is defined and item.item|length > 0"
+  no_log: True
+
+- name: Wait for SSH to come up
+  local_action: wait_for
+    host={{ item.item[1].public_ip }}
+    port=22
+    state=started
+  with_items: "{{ host_keys.results }}"
